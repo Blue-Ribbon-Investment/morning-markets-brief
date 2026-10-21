@@ -1,0 +1,97 @@
+<title>Morning Markets Brief</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600;700&family=Libre+Franklin:wght@700;800&display=swap">
+<style>
+/* Layout: a morning paper in one column. Navy masthead, then sections on white sheets, numbers in compact ledgers. */
+:root {
+  --bg: #EDF0F4;
+  --paper: #FFFFFF;
+  --ink: #18212F;
+  --muted: #586273;
+  --rule: #E1E6EC;
+  --soft: #F4F6F9;
+  --mast: #14284B;
+  --mast-ink: #FFFFFF;
+  --mast-sub: #C5D3E8;
+  --link: #1E4F9E;
+  --up: #12733A;
+  --down: #B3261E;
+  --note-bg: #FFF3D1;
+  --note-ink: #5A4300;
+  --f-display: "Libre Franklin", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0C1119; --paper: #131A25; --ink: #E3E8F0; --muted: #9AA5B6; --rule: #253043; --soft: #1A2331;
+    --mast: #0F1F3B; --mast-ink: #F1F4F9; --mast-sub: #A9BAD6; --link: #8DB4F0;
+    --up: #5FC58E; --down: #F08A80; --note-bg: #33280D; --note-ink: #F1D58C;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0C1119; --paper: #131A25; --ink: #E3E8F0; --muted: #9AA5B6; --rule: #253043; --soft: #1A2331;
+  --mast: #0F1F3B; --mast-ink: #F1F4F9; --mast-sub: #A9BAD6; --link: #8DB4F0;
+  --up: #5FC58E; --down: #F08A80; --note-bg: #33280D; --note-ink: #F1D58C;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+a { color: var(--link); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.wrap { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.mast { background: var(--mast); color: var(--mast-ink); }
+.mast .wrap { padding-block: 26px 22px; }
+.mast .kicker { color: var(--mast-sub); }
+.mast h1 { font-family: var(--f-display); font-weight: 800; font-size: clamp(1.6rem, 4.5vw, 2.2rem); line-height: 1.15; margin: 6px 0 4px; text-wrap: balance; }
+.mast .sub { margin: 0; color: var(--mast-sub); font-size: 0.9rem; }
+.notice { background: var(--note-bg); color: var(--note-ink); }
+.notice .wrap { padding-block: 10px; font-size: 0.88rem; }
+.notice p { margin: 0; }
+main.wrap { padding-block: 18px 32px; display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+.sec { background: var(--paper); border-radius: 10px; padding: 20px 22px 18px; min-width: 0; }
+@media (max-width: 520px) { .sec { padding: 18px 16px 16px; border-radius: 8px; } }
+.kicker { margin: 0; font-size: 0.7rem; letter-spacing: 0.13em; text-transform: uppercase; font-weight: 700; color: var(--muted); }
+.sec h2 { font-family: var(--f-display); font-weight: 800; font-size: 1.3rem; line-height: 1.25; margin: 2px 0 8px; text-wrap: balance; }
+.sec h3 { font-size: 0.98rem; font-weight: 700; margin: 18px 0 4px; }
+.sec p { margin: 8px 0; max-width: 68ch; }
+.sec ul { margin: 6px 0 4px; padding-left: 20px; max-width: 68ch; }
+.sec li { margin: 0 0 8px; }
+.tbl { overflow-x: auto; margin: 6px 0 4px; }
+table.data { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+table.data th { text-align: right; font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 6px 6px; border-bottom: 1px solid var(--rule); }
+table.data th:first-child, table.data td:first-child { text-align: left; }
+table.data td { padding: 6px 6px; border-bottom: 1px solid var(--rule); text-align: right; vertical-align: top; }
+table.data td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.88rem; }
+table.data td.asof { color: var(--muted); font-size: 0.78rem; }
+table.data tr.grp td { text-align: left; font-weight: 700; font-size: 0.8rem; padding-top: 12px; border-bottom: 0; color: var(--ink); }
+.up { color: var(--up); font-weight: 600; }
+.down { color: var(--down); font-weight: 600; }
+.flat { color: var(--muted); }
+.fine { font-size: 0.8rem; color: var(--muted); }
+.src { margin: 10px 0 0; font-size: 0.78rem; line-height: 1.5; color: var(--muted); }
+.src a { color: var(--muted); }
+.links-box { background: var(--soft); border-radius: 8px; padding: 12px 14px; margin-top: 16px; }
+.links-box ul { margin-bottom: 0; }
+footer.wrap { padding-block: 0 36px; font-size: 0.78rem; color: var(--muted); }
+footer p { margin: 0 0 6px; max-width: 68ch; }
+</style>
+
+<header class="mast">
+  <div class="wrap">
+    <p class="kicker">Morning Markets Brief · India and global</p>
+    <h1>{{EDITION_DATE}}</h1>
+    <p class="sub">About 15 minutes · all times IST · built {{BUILT_AT}}</p>
+  </div>
+</header>
+{{NOTICE}}
+<main class="wrap">
+{{CONTENT}}
+</main>
+<footer class="wrap">
+  <p>Prices: NSE, US Treasury, Bundesbank, Japan Ministry of Finance and Yahoo Finance (may be delayed). News: the publications linked in each section. Every number shows when it was taken; anything that could not be confirmed is left out.</p>
+  <p>Personal research brief, not investment advice.</p>
+</footer>
