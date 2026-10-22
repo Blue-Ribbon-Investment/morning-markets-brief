@@ -1,0 +1,117 @@
+name: Morning Markets Brief
+
+on:
+  schedule:
+    - cron: '7 0 * * *'   # 00:07 UTC = 05:37 IST every day (GitHub may start scheduled jobs a little late)
+  workflow_dispatch: {}    # "Run workflow" button for a manual run
+
+concurrency:
+  group: morning-brief
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      PAGE_URL: https://blue-ribbon-investment.github.io/morning-markets-brief/
+      HAS_MAIL: ${{ secrets.GMAIL_APP_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set today's date (IST)
+        run: |
+          echo "DATE=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_ENV"
+          echo "DATE_LABEL=$(TZ=Asia/Kolkata date '+%A %-d %B %Y')" >> "$GITHUB_ENV"
+
+      - name: Fetch market numbers and headlines
+        run: |
+          python3 -I -X utf8 fetch_numbers.py "runs/$DATE" || true
+          python3 -I -X utf8 fetch_news.py "runs/$DATE" 30 || true
+
+      - name: Claude writes the brief
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            Write today's Morning Markets Brief content (edition date: ${{ env.DATE_LABEL }}).
+
+            Today's data is already fetched into runs/${{ env.DATE }}/: numbers.txt (market numbers with dates and IST quote times) and headlines.txt (recent headlines with links).
+
+            1. Read README.md and follow its steps 3, 4 and 6 exactly. Also read example_content.html and copy its HTML patterns.
+            2. Read the key articles behind the stories you use: python3 -I -X utf8 art_text.py runs/${{ env.DATE }} <url1> <url2> ...
+            3. Write runs/${{ env.DATE }}/content.html with the seven sections in README order. It contains only <section class="sec"> blocks.
+            4. Check every number against numbers.txt or the article text, and remove any placeholder links.
+
+            Do NOT build, publish, commit, push or email anything. Later steps in this job do that.
+
+            Rules:
+            - Plain English and short sentences.
+            - India first, then global.
+            - Every number shows when it was taken and has a source link.
+            - Leave out anything you cannot confirm; never fill gaps from memory.
+            - No investment advice or stock tips.
+            - No "today's calendar" section.
+            - Say plainly which session the numbers are from (weekends and Indian market holidays included).
+
+            Finish with one line: the edition date and anything that failed.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 80
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
+
+      - name: Check the brief was written
+        run: test -s "runs/$DATE/content.html"
+
+      - name: Build the website and the email
+        run: python3 -I -X utf8 build_site.py "runs/$DATE/content.html" site out "$DATE_LABEL" "$(TZ=Asia/Kolkata date '+%-I:%M %p')" "$PAGE_URL"
+
+      - name: Upload the website
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Email the brief
+        if: env.HAS_MAIL == 'true'
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python3 -I -X utf8 send_email.py out/email.html "Morning Markets Brief · $DATE_LABEL" "$PAGE_URL"
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  keepalive:
+    # GitHub switches off scheduled jobs in public repos after 60 days without commits.
+    # On the 1st and 15th of each month this writes one line to last_run.txt so the schedule stays on.
+    needs: build
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Touch last_run.txt twice a month
+        run: |
+          DAY=$(TZ=Asia/Kolkata date +%d)
+          if [ "$DAY" = "01" ] || [ "$DAY" = "15" ]; then
+            TZ=Asia/Kolkata date '+%F %H:%M IST' > last_run.txt
+            git config user.name "morning-brief-bot"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add last_run.txt
+            git commit -m "Keep the daily schedule active" && git push || true
+          fi

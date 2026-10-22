@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Morning Markets Brief · {{EDITION_DATE}}</title>
+<style>
+  body { margin: 0; padding: 0; background: #EDF0F4; color: #18212F; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6; }
+  a { color: #1E4F9E; }
+  .outer { width: 100%; background: #EDF0F4; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 12px; }
+  .mast { background: #14284B; color: #FFFFFF; border-radius: 10px; padding: 20px 18px; }
+  .mast .kicker { color: #C5D3E8; }
+  .mast h1 { font-size: 24px; line-height: 1.2; margin: 6px 0 4px; color: #FFFFFF; }
+  .mast .sub { margin: 0; color: #C5D3E8; font-size: 13px; }
+  .mast a { color: #FFFFFF; }
+  .kicker { margin: 0; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: #586273; }
+  .sec { background: #FFFFFF; border-radius: 10px; padding: 18px; margin: 12px 0; }
+  .sec h2 { font-size: 20px; line-height: 1.25; margin: 2px 0 8px; color: #14284B; }
+  .sec h3 { font-size: 15px; margin: 16px 0 4px; color: #18212F; }
+  .sec p { margin: 8px 0; }
+  .sec ul { margin: 6px 0 4px; padding-left: 20px; }
+  .sec li { margin: 0 0 8px; }
+  .tbl { overflow-x: auto; margin: 6px 0 4px; }
+  table.data { border-collapse: collapse; width: 100%; font-size: 14px; }
+  table.data th { text-align: right; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: #586273; font-weight: 600; padding: 6px 5px; border-bottom: 1px solid #E1E6EC; }
+  table.data th:first-child, table.data td:first-child { text-align: left; }
+  table.data td { padding: 6px 5px; border-bottom: 1px solid #E1E6EC; text-align: right; vertical-align: top; }
+  table.data td.num { font-family: Consolas, 'Courier New', monospace; white-space: nowrap; font-size: 13px; }
+  table.data td.asof { color: #586273; font-size: 12px; }
+  table.data tr.grp td { text-align: left; font-weight: 700; font-size: 13px; padding-top: 12px; border-bottom: 0; }
+  .up { color: #12733A; font-weight: 600; }
+  .down { color: #B3261E; font-weight: 600; }
+  .flat { color: #586273; }
+  .fine { font-size: 12px; color: #586273; }
+  .src { margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: #586273; }
+  .src a { color: #586273; }
+  .links-box { background: #F4F6F9; border-radius: 8px; padding: 12px 14px; margin-top: 16px; }
+  .foot { font-size: 12px; color: #586273; padding: 4px 6px 20px; }
+</style>
+</head>
+<body>
+<div class="outer"><div class="wrap">
+  <div class="mast">
+    <p class="kicker">Morning Markets Brief · India and global</p>
+    <h1>{{EDITION_DATE}}</h1>
+    <p class="sub">About 15 minutes · all times IST · built {{BUILT_AT}} · <a href="{{PAGE_URL}}">Open on the web</a></p>
+  </div>
+{{CONTENT}}
+  <div class="foot">
+    <p>Prices: NSE, US Treasury, Bundesbank, Japan Ministry of Finance and Yahoo Finance (may be delayed). News: the publications linked in each section. Personal research brief, not investment advice.</p>
+    <p>Web version: <a href="{{PAGE_URL}}">{{PAGE_URL}}</a></p>
+  </div>
+</div></div>
+</body>
+</html>

@@ -54,6 +54,13 @@ Let `DATE` be today's date in IST as `YYYY-MM-DD` and `RUN` be `runs/DATE`.
 8. **Archive:** copy `runs/DATE/page.html` to `editions/DATE.html`. Skip this in the cloud; the page's version history keeps past editions.
 9. **Finish** with one line: the edition date, the link, and anything that failed (for example "GIFT Nifty unavailable" or "NSE blocked; India numbers from news").
 
+## Running on GitHub (the daily online run)
+`.github/workflows/morning-brief.yml` runs every day at about 05:37 IST on GitHub's computers, whether or not the laptop is on.
+- **The workflow** does steps 1–2 (numbers and headlines), then **Claude** (anthropics/claude-code-action, with the `CLAUDE_CODE_OAUTH_TOKEN` secret) does steps 3, 4 and 6 and writes `runs/DATE/content.html` only.
+- **The workflow** then builds the public website (`build_site.py` → GitHub Pages: https://blue-ribbon-investment.github.io/morning-markets-brief/) and emails the brief (`send_email.py`, using the `GMAIL_USER`, `GMAIL_APP_PASSWORD` and `EMAIL_TO` secrets).
+- Steps 5, 7 and 8 above (artifact page and archive) apply only to a laptop run.
+- Secrets live in the repo's Settings → Secrets and variables → Actions. They are never written into these files.
+
 ## Notes
 - Times: US markets close at 1:30 AM IST (2:30 AM after US clocks change on 1 November), Europe at 9:00–9:30 PM IST, and Japan and Korea open at 5:30 AM IST.
 - Sunday editions: markets tables show Friday's closes (say so). Lead with the weekend's news and the week ahead in two lines.
