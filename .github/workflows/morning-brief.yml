@@ -2,7 +2,11 @@ name: Morning Markets Brief
 
 on:
   schedule:
-    - cron: '7 0 * * *'   # 00:07 UTC = 05:37 IST every day (GitHub may start scheduled jobs a little late)
+    # GitHub often starts scheduled jobs late (hours, around 00:00 UTC), so there are three tries.
+    # The first one that runs builds the day's edition; later ones see it is already out and stop.
+    - cron: '47 22 * * *'   # 04:17 IST
+    - cron: '37 23 * * *'   # 05:07 IST
+    - cron: '27 0 * * *'    # 05:57 IST
   workflow_dispatch: {}    # "Run workflow" button for a manual run
 
 concurrency:
@@ -15,6 +19,8 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+    outputs:
+      go: ${{ steps.gate.outputs.go }}
     env:
       PAGE_URL: https://blue-ribbon-investment.github.io/morning-markets-brief/
       HAS_MAIL: ${{ secrets.GMAIL_APP_PASSWORD != '' }}
@@ -26,12 +32,24 @@ jobs:
           echo "DATE=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_ENV"
           echo "DATE_LABEL=$(TZ=Asia/Kolkata date '+%A %-d %B %Y')" >> "$GITHUB_ENV"
 
+      - name: Skip if today's edition is already published
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && curl -fsSL "$PAGE_URL?nocache=$(date +%s)" | grep -q "$DATE_LABEL"; then
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Today's edition ($DATE_LABEL) is already published. Nothing to do."
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Fetch market numbers and headlines
+        if: steps.gate.outputs.go == 'true'
         run: |
           python3 -I -X utf8 fetch_numbers.py "runs/$DATE" || true
           python3 -I -X utf8 fetch_news.py "runs/$DATE" 30 || true
 
       - name: Claude writes the brief
+        if: steps.gate.outputs.go == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -64,18 +82,21 @@ jobs:
             --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
 
       - name: Check the brief was written
+        if: steps.gate.outputs.go == 'true'
         run: test -s "runs/$DATE/content.html"
 
       - name: Build the website and the email
+        if: steps.gate.outputs.go == 'true'
         run: python3 -I -X utf8 build_site.py "runs/$DATE/content.html" site out "$DATE_LABEL" "$(TZ=Asia/Kolkata date '+%-I:%M %p')" "$PAGE_URL"
 
       - name: Upload the website
+        if: steps.gate.outputs.go == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: site
 
       - name: Email the brief
-        if: env.HAS_MAIL == 'true'
+        if: steps.gate.outputs.go == 'true' && env.HAS_MAIL == 'true'
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
@@ -84,6 +105,7 @@ jobs:
 
   deploy:
     needs: build
+    if: needs.build.outputs.go == 'true'
     runs-on: ubuntu-latest
     permissions:
       pages: write
