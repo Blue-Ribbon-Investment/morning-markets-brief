@@ -68,6 +68,12 @@ table.data td { padding: 6px 6px; border-bottom: 1px solid var(--rule); text-ali
 table.data td.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.88rem; }
 table.data td.asof { color: var(--muted); font-size: 0.78rem; }
 table.data tr.grp td { text-align: left; font-weight: 700; font-size: 0.8rem; padding-top: 12px; border-bottom: 0; color: var(--ink); }
+table.data .asof-line { display: block; font-size: 0.72rem; line-height: 1.3; color: var(--muted); font-weight: 400; margin-top: 1px; }
+@media (max-width: 520px) {
+  table.data { font-size: 0.88rem; }
+  table.data th, table.data td { padding: 7px 4px; }
+  table.data td.num { font-size: 0.82rem; }
+}
 .up { color: var(--up); font-weight: 600; }
 .down { color: var(--down); font-weight: 600; }
 .flat { color: var(--muted); }
