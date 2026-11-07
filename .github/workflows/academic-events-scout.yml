@@ -1,0 +1,142 @@
+name: Academic Events Scout
+
+on:
+  schedule:
+    # Runs early on the 1st of each month IST. GitHub delays cron jobs, so there are three tries.
+    # The edition gate (below) makes sure only the first successful run of the month emails.
+    - cron: '27 0 1 * *'   # 05:57 IST on the 1st
+    - cron: '37 0 1 * *'   # 06:07 IST on the 1st
+    - cron: '47 0 1 * *'   # 06:17 IST on the 1st
+  workflow_dispatch: {}    # "Run workflow" button for a manual run
+
+concurrency:
+  group: academic-events-scout
+  cancel-in-progress: false
+
+jobs:
+  scout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      HAS_MAIL: ${{ secrets.GMAIL_APP_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set month labels (IST)
+        run: |
+          CUR=$(TZ=Asia/Kolkata date +%Y-%m)
+          NEXT=$(TZ=Asia/Kolkata date -d "${CUR}-01 + 1 month" +'%Y-%m')
+          MONTH_A=$(TZ=Asia/Kolkata date -d "${CUR}-01" +'%B')
+          MONTH_B=$(TZ=Asia/Kolkata date -d "${NEXT}-01" +'%B')
+          WINDOW_END=$(TZ=Asia/Kolkata date -d "${NEXT}-01 + 1 month - 1 day" +'%F')
+          Y1=$(TZ=Asia/Kolkata date -d "${CUR}-01" +'%Y')
+          Y2=$(TZ=Asia/Kolkata date -d "${NEXT}-01" +'%Y')
+          if [ "$Y1" = "$Y2" ]; then
+            EDITION_LABEL="$MONTH_A–$MONTH_B $Y1"
+          else
+            EDITION_LABEL="$MONTH_A $Y1–$MONTH_B $Y2"
+          fi
+          {
+            echo "MONTH_A=$MONTH_A"
+            echo "MONTH_B=$MONTH_B"
+            echo "WINDOW_END=$WINDOW_END"
+            echo "EDITION_LABEL=$EDITION_LABEL"
+          } >> "$GITHUB_ENV"
+          echo "Scout edition: $EDITION_LABEL (window ends $WINDOW_END)"
+
+      - name: Skip if this edition already went out
+        id: gate
+        run: |
+          if grep -qF "$EDITION_LABEL" scout/last_edition.txt 2>/dev/null; then
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Edition $EDITION_LABEL was already sent. Nothing to do."
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare a clean working folder
+        if: steps.gate.outputs.go == 'true'
+        run: rm -rf runs/scout && mkdir -p runs/scout out/scout
+
+      - name: Fetch source conference pages
+        if: steps.gate.outputs.go == 'true'
+        run: python3 -I -X utf8 scout/fetch_events.py "$EDITION_LABEL" runs/scout || true
+
+      - name: Claude scouts and verifies the events
+        if: steps.gate.outputs.go == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            Write this month's Academic Events Scout report.
+
+            The edition is ${{ env.EDITION_LABEL }}. The window is from today (the 1st of ${{ env.MONTH_A }} IST)
+            until ${{ env.WINDOW_END }}. Cities: Ahmedabad, Pune and Mumbai.
+
+            1. Read runs/scout/raw_events.txt — it holds the text of the conference/event pages
+               our fetcher pulled (some sources may have failed; it notes which). Mine it for events.
+            2. Also find events the raw file missed: academic conferences, seminars, symposia and
+               research workshops in the three cities, at IITs, IIMs, NITs, SPPU, MSU, VJTI, NITK,
+               NIST, IIIT Pune, SP Jain, Amity, BITS, and similar research centres. Use the WebSearch
+               and WebFetch tools if they work in this environment; if WebSearch is unavailable, fall
+               back to Google News RSS via curl (same technique as fetch_news.py in this repo):
+                 curl -s "https://news.google.com/rss/search?q=conference+Ahmedabad+when:1y&hl=en-IN&gl=IN&ceid=IN:en"
+                 curl -s "https://news.google.com/rss/search?q=academic+conference+Pune+when:1y&hl=en-IN&gl=IN&ceid=IN:en"
+                 curl -s "https://news.google.com/rss/search?q=conference+Mumbai+when:1y&hl=en-IN&gl=IN&ceid=IN:en"
+               and to the institute calendars directly (see runs/scout/raw_events.txt for which
+               pages our fetcher pulled and which failed).
+               Good queries: "conference Ahmedabad ${{ env.MONTH_A }}", "research workshop Mumbai
+               ${{ env.MONTH_A }}", "seminar IIT Bombay ${{ env.MONTH_A }}".
+            3. Only keep events where academics present or publish research: conferences, invited
+               talks, symposia, research workshops, thesis defenses. Drop business summits, job fairs,
+               sports, culture and entertainment events.
+            4. For every event, confirm the exact date(s), the organising body and the official link
+               (fetch the page when in doubt). Drop anything whose dates you cannot confirm.
+            5. Write the report to runs/scout/events.json with exactly this shape:
+               {"title": "...", "intro": "1-2 plain-English sentences",
+                "events": [{"date": "12–14 Dec 2026", "title": "...", "city": "Mumbai",
+                            "org": "organising body", "type": "Conference|Seminar|Workshop",
+                            "link": "https://...", "note": "optional one-liner (fees, CFP deadline)"}],
+                "sources_note": "optional"}
+               City must be exactly Ahmedabad, Pune or Mumbai. Include events after ${{ env.WINDOW_END }}
+               only if they have a registration/call-for-papers deadline inside the window.
+               If nothing verifiable exists, still write the file with an empty events array and say
+               so in the intro — the email goes out either way.
+            6. Plain English, short sentences. No filler. If a city has nothing, that's fine — say so
+               in the intro, not with fake events.
+
+            Do NOT build, commit, push or email anything. Later steps in this job do that.
+
+            Finish with one line: the edition label, how many events, and anything that failed.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 80
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"
+
+      - name: Check the report was written
+        if: steps.gate.outputs.go == 'true'
+        run: test -s "runs/scout/events.json"
+
+      - name: Build the email
+        if: steps.gate.outputs.go == 'true'
+        run: python3 -I -X utf8 scout/build_events_email.py "runs/scout/events.json" out/scout/email.html "$EDITION_LABEL"
+
+      - name: Email the scout report
+        if: steps.gate.outputs.go == 'true' && env.HAS_MAIL == 'true'
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python3 -I -X utf8 scout/send_events_email.py out/scout/email.html "Academic Events Scout · $EDITION_LABEL"
+
+      - name: Record the edition so later runs today skip it
+        if: steps.gate.outputs.go == 'true' && success()
+        run: |
+          echo "$EDITION_LABEL  $(date -u '+%F %R UTC')" >> scout/last_edition.txt
+          git config user.name "academic-scout-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add scout/last_edition.txt
+          git commit -m "Record scout edition $EDITION_LABEL" && git push || true
