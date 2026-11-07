@@ -78,6 +78,12 @@ jobs:
 
             1. Read runs/scout/raw_events.txt — it holds the text of the conference/event pages
                our fetcher pulled (some sources may have failed; it notes which). Mine it for events.
+               The "ConferenceAlerts" blocks are a cross-listing aggregator, not an authority: entries
+               there can be stale, duplicated, or tagged to the wrong city. Treat every aggregator line
+               as a lead only — confirm each one on the organiser's own page (or a second independent
+               source) before including it. The institute calendar blocks (IIM-Ahmedabad, IIT Bombay,
+               TIFR, VJTI) are the institutions' own listings, so trust those dates more, but still
+               confirm any you use.
             2. Also find events the raw file missed: academic conferences, seminars, symposia and
                research workshops in the three cities, at IITs, IIMs, NITs, SPPU, MSU, VJTI, NITK,
                NIST, IIIT Pune, SP Jain, Amity, BITS, and similar research centres. Use the WebSearch

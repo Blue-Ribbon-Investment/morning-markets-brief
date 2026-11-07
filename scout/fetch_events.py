@@ -20,17 +20,26 @@ HEADERS = {'User-Agent': ('Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
       'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36')}
 TIMEOUT = 15
 
-# (name, URL, city) — institute event pages in the three requested cities.
+# (name, URL, city) — event pages in the three requested cities. Two kinds:
+#  1. Aggregators: cross-list many conferences per city. Cheaper recall, but
+#     entries can be stale or duplicated — Claude verifies each one on the
+#     organizer's own page before it goes into the report.
+#  2. Institute calendars: the home page of the institute's own events.
 # Best-effort: any broken path just logs a warning, and Claude falls back to
 # web search to fill the gaps. Keep this to pages that actually resolve —
-# dead links here just add noise to the raw dump. Verify a URL before adding it.
+# dead links here just add noise to the raw dump. Verify a URL before adding it
+# (all of the ones below were confirmed live and carrying events on 2026-11-08).
 SOURCES = [
-    # Mumbai
-    ('IIT Bombay — Events',     'https://www.iitb.ac.in/events/',        'Mumbai'),
+    # Aggregators (verified live 2026-11-08)
+    ('ConferenceAlerts — Ahmedabad',  'https://www.conferencealerts.com/city-listing?city=Ahmedabad', 'Ahmedabad'),
+    ('ConferenceAlerts — Pune',       'https://www.conferencealerts.com/city-listing?city=Pune',      'Pune'),
+    ('ConferenceAlerts — Mumbai',     'https://www.conferencealerts.com/city-listing?city=Mumbai',    'Mumbai'),
+    # Institute calendars
+    ('IIM-Ahmedabad — Events',        'https://www.iima.ac.in/the-institute/events', 'Ahmedabad'),
+    ('IIT Bombay — Events',           'https://www.iitb.ac.in/events/',              'Mumbai'),
     ('Tata Institute of Fundamental Research',
-                                    'https://www.tifr.res.in/',          'Mumbai'),
-    # Ahmedabad and Pune are covered by Claude's web search on every run;
-    # add a direct event-page URL here only when you find one that resolves.
+                                        'https://www.tifr.res.in/',                    'Mumbai'),
+    ('VJTI Mumbai — Events',          'https://www.vjti.ac.in/events',               'Mumbai'),
 ]
 
 # Lines containing these are worth keeping (a conference/seminar callout, etc.)
