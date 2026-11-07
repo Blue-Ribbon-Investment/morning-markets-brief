@@ -2,12 +2,23 @@ name: Morning Markets Brief
 
 on:
   schedule:
-    # GitHub often starts scheduled jobs late (hours, around 00:00 UTC), so there are three tries.
-    # The first one that runs builds the day's edition; later ones see it is already out and stop.
-    - cron: '47 22 * * *'   # 04:17 IST
-    - cron: '37 23 * * *'   # 05:07 IST
-    - cron: '27 0 * * *'    # 05:57 IST
-  workflow_dispatch: {}    # "Run workflow" button for a manual run
+    # GitHub's own clock is unreliable (its scheduled jobs often start hours
+    # late), so on a normal day the edition is started instead by a timer on
+    # Vercel (project "morning-brief-timer") that pings this repo's
+    # workflow_dispatch API at 07:00 IST; the build takes ~4 min, so the
+    # email lands ~07:05 IST. The three crons below are the backup: when the
+    # timer works they see the edition is already out and stop; if the timer
+    # ever fails, the first one that finally runs builds the edition (email
+    # lands later that day, but only on a day the timer misses).
+    - cron: '0 2 * * *'     # 07:30 IST
+    - cron: '30 2 * * *'    # 08:00 IST
+    - cron: '0 3 * * *'     # 08:30 IST
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Rebuild even if today is already out (fixes a bad edition)'
+        required: false
+        default: 'false'
 
 concurrency:
   group: morning-brief
@@ -35,7 +46,10 @@ jobs:
       - name: Skip if today's edition is already published
         id: gate
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] && curl -fsSL "$PAGE_URL?nocache=$(date +%s)" | grep -q "$DATE_LABEL"; then
+          # Timer and backup crons can land the same day, so skip on ANY event
+          # type when the page already carries today's label. A manual "Run
+          # workflow" with force=true rebuilds anyway.
+          if [ "${{ inputs.force }}" != "true" ] && curl -fsSL "$PAGE_URL?nocache=$(date +%s)" | grep -q "$DATE_LABEL"; then
             echo "go=false" >> "$GITHUB_OUTPUT"
             echo "Today's edition ($DATE_LABEL) is already published. Nothing to do."
           else
