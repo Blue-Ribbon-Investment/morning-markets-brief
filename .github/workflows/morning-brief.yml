@@ -19,6 +19,10 @@ on:
         description: 'Rebuild even if today is already out (fixes a bad edition)'
         required: false
         default: 'false'
+      rescue:
+        description: 'Skip the Claude writing step and publish runs/DATE/content.html as committed (used when the Claude step is locked out)'
+        required: false
+        default: 'false'
 
 concurrency:
   group: morning-brief
@@ -63,10 +67,11 @@ jobs:
           python3 -I -X utf8 fetch_news.py "runs/$DATE" 30 || true
 
       - name: Claude writes the brief
-        if: steps.gate.outputs.go == 'true'
+        if: steps.gate.outputs.go == 'true' && inputs.rescue != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             Write today's Morning Markets Brief content (edition date: ${{ env.DATE_LABEL }}).
