@@ -1,0 +1,128 @@
+name: Daily Macro Brief
+
+on:
+  schedule:
+    # Runs about 09:00 IST every morning. GitHub's cron is unreliable (jobs often
+    # start late), so there are three tries; the edition gate below makes sure only
+    # the first successful run of the day emails.
+    - cron: '30 3 * * *'   # 09:00 IST
+    - cron: '50 3 * * *'   # 09:20 IST
+    - cron: '10 4 * * *'   # 09:40 IST
+  workflow_dispatch: {}    # "Run workflow" button for a manual run
+
+concurrency:
+  group: daily-macro-brief
+  cancel-in-progress: false
+
+jobs:
+  brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      HAS_MAIL: ${{ secrets.GMAIL_APP_PASSWORD != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set today's date label (IST)
+        run: |
+          echo "DATE=$(TZ=Asia/Kolkata date +%F)" >> "$GITHUB_ENV"
+          echo "DATE_LABEL=$(TZ=Asia/Kolkata date '+%A %-d %B %Y')" >> "$GITHUB_ENV"
+          echo "Macro brief edition: $DATE_LABEL"
+
+      - name: Skip if today's edition already went out
+        id: gate
+        run: |
+          if grep -qF "$DATE_LABEL" macro/last_edition.txt 2>/dev/null; then
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "Edition $DATE_LABEL was already sent. Nothing to do."
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare a clean working folder
+        if: steps.gate.outputs.go == 'true'
+        run: rm -rf runs/macro out/macro && mkdir -p runs/macro out/macro
+
+      - name: Fetch macro headlines
+        if: steps.gate.outputs.go == 'true'
+        run: python3 -I -X utf8 macro/fetch_macro.py "runs/macro" 30 || true
+
+      - name: Claude writes the macro brief
+        if: steps.gate.outputs.go == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            Write today's Daily Macro Brief (edition: ${{ env.DATE_LABEL }}).
+
+            The raw material is in runs/macro/macro.txt — macro headlines our fetcher pulled
+            (some sources may have failed; it notes which). Mine it, then use WebSearch and
+            WebFetch to fill gaps, confirm figures, and add anything major it missed.
+
+            Cover, in order:
+            1. Economic data released or due today and in the last ~24h (CPI, GDP, retail
+               sales, manufacturing, IIP, capacity utilisation, PMI, labour data, etc.).
+            2. Central banks: decisions, statements, policy-rate moves and guidance from the
+               Fed, ECB, Bank of Japan, BOE and the RBI, plus rate expectations / market odds.
+            3. Tariffs, trade policy and trade-war headlines.
+            4. Geopolitical events with a route into markets (sanctions, ceasefire, shipping,
+               energy disruption, elections, major national policy).
+            5. The Indian read: how each of the above matters to India (rupee, imports, IT,
+               exports, energy, FII/FDI sentiment).
+
+            For every item write a one-line "why it matters." Plain English, short sentences.
+            Every figure and claim carries a source link. Anything you cannot confirm, leave
+            out — never fill gaps from memory. No investment advice or buy/sell calls.
+
+            Write the brief to runs/macro/macro.json with exactly this shape:
+            {
+              "title": "Daily Macro Brief — <edition>",
+              "intro": "1-2 plain-English sentences on the overall macro picture",
+              "top": [ {"heading":"...", "why":"...", "link":"https://..."} ],
+              "sections": [
+                {"heading":"Global data and central banks","items":[{"heading":"...","why":"...","link":"https://..."}]},
+                {"heading":"Tariffs and trade","items":[ ... ]},
+                {"heading":"Geopolitics","items":[ ... ]},
+                {"heading":"The India read","items":[ ... ]}
+              ],
+              "sources_note": "optional"
+            }
+            "top" holds the 3-5 most market-relevant items of the day. An empty section is fine
+            as an empty items array — but only if nothing actually happened, not to save time.
+            If the whole thing is quiet, still write the file with an intro that says so.
+
+            Do NOT build, commit, push or email anything. Later steps in this job do that.
+
+            Finish with one line: the edition date, how many items, and anything that failed.
+          claude_args: |
+            --model claude-sonnet-5-5
+            --max-turns 80
+            --allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"
+
+      - name: Check the brief was written
+        if: steps.gate.outputs.go == 'true'
+        run: test -s "runs/macro/macro.json"
+
+      - name: Build the email
+        if: steps.gate.outputs.go == 'true'
+        run: python3 -I -X utf8 macro/build_macro_email.py runs/macro/macro.json out/macro/email.html "$DATE_LABEL"
+
+      - name: Email the macro brief
+        if: steps.gate.outputs.go == 'true' && env.HAS_MAIL == 'true'
+        env:
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python3 -I -X utf8 macro/send_macro_email.py out/macro/email.html "Daily Macro Brief · $DATE_LABEL"
+
+      - name: Record the edition so later runs today skip it
+        if: steps.gate.outputs.go == 'true' && success()
+        run: |
+          echo "$DATE_LABEL  $(date -u '+%F %R UTC')" >> macro/last_edition.txt
+          git config user.name "macro-brief-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add macro/last_edition.txt
+          git commit -m "Record macro brief edition $DATE_LABEL" && git push || true

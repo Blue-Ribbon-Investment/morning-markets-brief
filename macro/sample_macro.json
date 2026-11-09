@@ -1,0 +1,11 @@
+{"title": "Daily Macro Brief - test",
+ "intro": "A quiet trading day.",
+ "top": [
+   {"heading": "US CPI soft", "why": "inflation stayed at 2.4%", "link": "https://example.com/a"}
+ ],
+ "sections": [
+   {"heading": "Global data and central banks",
+    "items": [{"heading": "Fed holds", "why": "rates unchanged", "link": "https://example.com/b"}]},
+   {"heading": "The India read", "items": []}
+ ],
+ "sources_note": "test note"}

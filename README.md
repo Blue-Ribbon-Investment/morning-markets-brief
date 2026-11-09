@@ -61,6 +61,18 @@ Let `DATE` be today's date in IST as `YYYY-MM-DD` and `RUN` be `runs/DATE`.
 - Steps 5, 7 and 8 above (artifact page and archive) apply only to a laptop run.
 - Secrets live in the repo's Settings → Secrets and variables → Actions. They are never written into these files.
 
+## Daily Macro Brief (separate robot, same repo, same secrets)
+`.github/workflows/macro-brief.yml` runs about 09:00 IST every morning and emails a macro digest
+(economic data, central banks, tariffs, geopolitics, and the India read) to `EMAIL_TO`.
+- **The workflow** fetches raw macro headlines (`macro/fetch_macro.py` → `runs/macro/macro.txt`),
+  then **Claude** (same `CLAUDE_CODE_OAUTH_TOKEN`) writes `runs/macro/macro.json`,
+  which `macro/build_macro_email.py` turns into an HTML email that `macro/send_macro_email.py`
+  sends. No web page — email only, like the Academic Events Scout.
+- The gate (`macro/last_edition.txt`) stops later cron tries and a manual run from re-sending
+  the same edition. The three crons are because GitHub's schedule is late-prone.
+- Uses the exact same three secrets as the Morning Brief (no new ones to manage).
+- Manual test: GitHub → Actions → Daily Macro Brief → Run workflow.
+
 ## Notes
 - Times: US markets close at 1:30 AM IST (2:30 AM after US clocks change on 1 November), Europe at 9:00–9:30 PM IST, and Japan and Korea open at 5:30 AM IST.
 - Sunday editions: markets tables show Friday's closes (say so). Lead with the weekend's news and the week ahead in two lines.
