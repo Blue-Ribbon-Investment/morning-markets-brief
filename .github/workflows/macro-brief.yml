@@ -102,6 +102,7 @@ jobs:
             --model claude-sonnet-5-5
             --max-turns 80
             --allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebSearch,WebFetch"
+          show_full_output: true   # diagnostic: surface the real Claude error in the run log
 
       - name: Check the brief was written
         if: steps.gate.outputs.go == 'true'
