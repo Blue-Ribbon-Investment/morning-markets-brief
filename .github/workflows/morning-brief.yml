@@ -39,6 +39,10 @@ jobs:
     env:
       PAGE_URL: https://blue-ribbon-investment.github.io/morning-markets-brief/
       HAS_MAIL: ${{ secrets.GMAIL_APP_PASSWORD != '' }}
+      # ANTHROPIC_BASE_URL routes the writer's API calls through the brocode
+      # relay that issues the sk-bro- API key stored in ANTHROPIC_API_KEY
+      # (the direct Anthropic API rejects that key; it only works via the relay).
+      ANTHROPIC_BASE_URL: https://api.brocode.live
     steps:
       - uses: actions/checkout@v4
 
