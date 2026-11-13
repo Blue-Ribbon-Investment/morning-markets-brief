@@ -22,6 +22,7 @@ jobs:
       contents: write
     env:
       HAS_MAIL: ${{ secrets.GMAIL_APP_PASSWORD != '' }}
+      ANTHROPIC_BASE_URL: https://api.brocode.live
     steps:
       - uses: actions/checkout@v4
 
@@ -53,7 +54,7 @@ jobs:
         if: steps.gate.outputs.go == 'true'
         uses: anthropics/claude-code-action@v1
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: |
             Write today's Daily Macro Brief (edition: ${{ env.DATE_LABEL }}).
