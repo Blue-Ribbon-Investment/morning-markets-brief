@@ -50,6 +50,14 @@ jobs:
         if: steps.gate.outputs.go == 'true'
         run: python3 -I -X utf8 macro/fetch_macro.py "runs/macro" 30 || true
 
+      - name: Verify the relay API key (diagnostic)
+        if: steps.gate.outputs.go == 'true'
+        run: |
+          code=$(curl -s -o /tmp/relay_check.json -w "%{http_code}" "$ANTHROPIC_BASE_URL/v1/messages" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" -H "anthropic-version: 2023-06-01" -H "content-type: application/json" \
+            -d '{"model":"claude-sonnet-5-5","max_tokens":16,"messages":[{"role":"user","content":"reply with: ok"}]}')
+          echo "Relay check HTTP $code: $(head -c 300 /tmp/relay_check.json)"
+
       - name: Claude writes the macro brief
         if: steps.gate.outputs.go == 'true'
         uses: anthropics/claude-code-action@v1
