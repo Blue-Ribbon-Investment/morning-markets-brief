@@ -1,4 +1,7 @@
 runs/
 editions/
+out/
+site/
+nse_cookies.txt
+*.html
 __pycache__/
-*.pyc

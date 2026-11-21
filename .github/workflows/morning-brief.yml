@@ -2,21 +2,13 @@ name: Morning Markets Brief
 
 on:
   schedule:
-    # GitHub's own clock is unreliable (its scheduled jobs often start hours
-    # late), so on a normal day the edition is started instead by a timer on
-    # Vercel (project "morning-brief-timer") that pings this repo's
-    # workflow_dispatch API at 07:00 IST; the build takes ~4 min, so the
-    # email lands ~07:05 IST. The three crons below are the backup: when the
-    # timer works they see the edition is already out and stop; if the timer
-    # ever fails, the first one that finally runs builds the edition (email
-    # lands later that day, but only on a day the timer misses).
     - cron: '0 2 * * *'     # 07:30 IST
     - cron: '30 2 * * *'    # 08:00 IST
     - cron: '0 3 * * *'     # 08:30 IST
   workflow_dispatch:
     inputs:
       force:
-        description: 'Rebuild even if today is already out (fixes a bad edition)'
+        description: 'Rebuild even if today is already out'
         required: false
         default: 'false'
 
@@ -46,9 +38,6 @@ jobs:
       - name: Skip if today's edition is already published
         id: gate
         run: |
-          # Timer and backup crons can land the same day, so skip on ANY event
-          # type when the page already carries today's label. A manual "Run
-          # workflow" with force=true rebuilds anyway.
           if [ "${{ inputs.force }}" != "true" ] && curl -fsSL "$PAGE_URL?nocache=$(date +%s)" | grep -q "$DATE_LABEL"; then
             echo "go=false" >> "$GITHUB_OUTPUT"
             echo "Today's edition ($DATE_LABEL) is already published. Nothing to do."
@@ -64,36 +53,10 @@ jobs:
 
       - name: Claude writes the brief
         if: steps.gate.outputs.go == 'true'
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          prompt: |
-            Write today's Morning Markets Brief content (edition date: ${{ env.DATE_LABEL }}).
-
-            Today's data is already fetched into runs/${{ env.DATE }}/: numbers.txt (market numbers with dates and IST quote times) and headlines.txt (recent headlines with links).
-
-            1. Read README.md and follow its steps 3, 4 and 6 exactly. Also read example_content.html and copy its HTML patterns.
-            2. Read the key articles behind the stories you use: python3 -I -X utf8 art_text.py runs/${{ env.DATE }} <url1> <url2> ...
-            3. Write runs/${{ env.DATE }}/content.html with the seven sections in README order. It contains only <section class="sec"> blocks.
-            4. Check every number against numbers.txt or the article text, and remove any placeholder links.
-
-            Do NOT build, publish, commit, push or email anything. Later steps in this job do that.
-
-            Rules:
-            - Plain English and short sentences.
-            - India first, then global.
-            - Every number shows when it was taken and has a source link.
-            - Leave out anything you cannot confirm; never fill gaps from memory.
-            - No investment advice or stock tips.
-            - No "today's calendar" section.
-            - Say plainly which session the numbers are from (weekends and Indian market holidays included).
-
-            Finish with one line: the edition date and anything that failed.
-          claude_args: |
-            --model claude-sonnet-5-5
-            --max-turns 80
-            --allowedTools "Bash,Read,Write,Edit,Glob,Grep"
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL || 'https://api.anthropic.com' }}
+        run: python3 -I -X utf8 write_brief.py "runs/$DATE" "$DATE_LABEL"
 
       - name: Check the brief was written
         if: steps.gate.outputs.go == 'true'
@@ -132,8 +95,6 @@ jobs:
         uses: actions/deploy-pages@v4
 
   keepalive:
-    # GitHub switches off scheduled jobs in public repos after 60 days without commits.
-    # On the 1st and 15th of each month this writes one line to last_run.txt so the schedule stays on.
     needs: build
     if: always()
     runs-on: ubuntu-latest
